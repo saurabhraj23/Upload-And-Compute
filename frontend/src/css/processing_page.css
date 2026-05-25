@@ -1,0 +1,362 @@
+/* =========================================
+   ACTION AREA
+   ========================================= */
+
+.action-grid {
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 0.75rem;
+
+  margin-bottom: 0.75rem;
+}
+
+.btn-secondary {
+  padding: 0.8rem;
+
+  background: white;
+
+  color: var(--text-main);
+
+  border: 1px solid var(--border-color);
+
+  border-radius: 6px;
+
+  font-weight: 600;
+
+  cursor: pointer;
+}
+
+.description-preview {
+  padding: 0.7rem 0.8rem;
+
+  background-color: #f8fafc;
+
+  border: 1px solid var(--border-color);
+
+  border-radius: 6px;
+
+  font-size: 0.9rem;
+
+  color: var(--text-main);
+
+  margin-top: 0.4rem;
+}
+
+.footer-actions {
+  margin-top: 1rem;
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: center;
+
+  gap: 0.75rem;
+}
+
+.btn-cancel-link {
+  background: none;
+
+  border: none;
+
+  color: var(--error);
+
+  font-size: 0.85rem;
+
+  font-weight: 600;
+
+  text-decoration: underline;
+
+  cursor: pointer;
+}
+
+.status-bar {
+  width: 100%;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 6px;
+
+  padding-top: 0.75rem;
+
+  border-top: 1px solid var(--border-color);
+
+  min-height: 24px;
+}
+
+.status-label {
+  font-size: 0.75rem;
+
+  font-weight: 700;
+
+  text-transform: uppercase;
+
+  color: var(--text-muted);
+}
+
+.status-value {
+  font-size: 0.8rem;
+
+  font-weight: 500;
+
+  color: var(--primary);
+}
+
+/* ERROR */
+.status-value.text-error {
+  color: #dc2626 !important;
+}
+
+/* CANCEL */
+.status-value.text-cancel {
+  color: #ef4444 !important;
+}
+
+/* SUCCESS */
+.status-value.text-success {
+  color: #16a34a !important;
+}
+
+/* =========================================
+   PREVIEW OVERLAY
+   ========================================= */
+
+.preview-overlay {
+  position: fixed;
+
+  inset: 0;
+
+  background: rgba(15, 23, 42, 0.65);
+
+  backdrop-filter: blur(3px);
+
+  display: flex;
+
+  justify-content: center;
+
+  align-items: center;
+
+  z-index: 9999;
+}
+
+/* =========================================
+   MODAL
+   ========================================= */
+
+.preview-modal {
+  background: white;
+
+  width: fit-content;
+
+  min-width: 700px;
+
+  max-width: 95vw;
+
+  max-height: 85vh;
+
+  border-radius: 10px;
+
+  display: flex;
+
+  flex-direction: column;
+
+  overflow: hidden;
+
+  box-shadow:
+    0 25px 50px -12px rgba(0,0,0,0.25);
+}
+
+/* =========================================
+   HEADER
+   ========================================= */
+
+.preview-header {
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: center;
+
+  padding: 1rem 1.25rem;
+
+  border-bottom: 1px solid #e2e8f0;
+
+  background: #f8fafc;
+}
+
+.preview-header h3 {
+  margin: 0;
+
+  font-size: 1.1rem;
+
+  color: #0f172a;
+}
+
+.close-preview-btn {
+  border: none;
+
+  background: none;
+
+  font-size: 1.4rem;
+
+  cursor: pointer;
+
+  color: #64748b;
+}
+
+.close-preview-btn:hover {
+  color: #ef4444;
+}
+
+/* =========================================
+   INFO
+   ========================================= */
+
+.preview-info {
+  padding: 0.65rem 1.25rem;
+
+  background: #f1f5f9;
+
+  border-bottom: 1px solid #e2e8f0;
+
+  font-size: 0.85rem;
+
+  color: #475569;
+}
+
+/* =========================================
+   TABLE WRAPPER
+   ========================================= */
+
+.preview-table-wrapper {
+  overflow: auto;
+
+  max-height: 60vh;
+
+  background: #f1f5f9;
+}
+
+/* =========================================
+   TABLE
+   ========================================= */
+
+.preview-table {
+  border-collapse: collapse;
+
+  width: max-content;
+
+  min-width: 100%;
+
+  background: white;
+}
+
+/* =========================================
+   HEADERS
+   ========================================= */
+
+.preview-table th {
+  position: sticky;
+
+  top: 0;
+
+  z-index: 20;
+
+  background: #f3f4f6;
+
+  border: 1px solid #d1d5db;
+
+  padding: 0;
+
+  min-width: 140px;
+
+  resize: horizontal;
+
+  overflow: auto;
+}
+
+.header-content {
+  padding: 10px 12px;
+
+  font-weight: 600;
+
+  white-space: nowrap;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+}
+
+/* =========================================
+   CELLS
+   ========================================= */
+
+.preview-table td {
+  border: 1px solid #d1d5db;
+
+  min-width: 140px;
+
+  resize: horizontal;
+
+  overflow: auto;
+}
+
+/* =========================================
+   INPUTS
+   ========================================= */
+
+.preview-table input {
+  width: 100%;
+
+  min-width: 140px;
+
+  border: none;
+
+  outline: none;
+
+  background: transparent;
+
+  padding: 10px 12px;
+
+  font-size: 14px;
+
+  color: #111827;
+
+  box-sizing: border-box;
+
+  white-space: nowrap;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+}
+
+.preview-table input:hover {
+  background: #f8fafc;
+}
+
+.preview-table input:focus {
+  background: white;
+
+  box-shadow:
+    inset 0 0 0 2px #107c41;
+}
+
+/* =========================================
+   FOOTER
+   ========================================= */
+
+.preview-footer {
+  display: flex;
+
+  justify-content: flex-end;
+
+  padding: 1rem 1.25rem;
+
+  border-top: 1px solid #e2e8f0;
+
+  background: #f8fafc;
+}

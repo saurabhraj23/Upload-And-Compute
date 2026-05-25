@@ -1,0 +1,28 @@
+# =====================
+# React
+# =====================
+
+frontend/node_modules
+frontend/build
+
+# =====================
+# Python
+# =====================
+
+backend/__pycache__/
+backend/.venv/
+backend/venv/
+*.pyc
+
+# =====================
+# Environment files
+# =====================
+
+.env
+
+# =====================
+# Mac/Linux/Windows
+# =====================
+
+.DS_Store
+Thumbs.db
