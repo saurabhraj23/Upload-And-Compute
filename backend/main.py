@@ -1,29 +1,12 @@
-from fastapi import (
-    FastAPI,
-    UploadFile,
-    File,
-    Form,
-    HTTPException,
-    Query
-)
+from pathlib import Path
+import shutil
 
+import pandas as pd
+from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-
 from fastapi.responses import JSONResponse
 
-import os
-import shutil
-import pandas as pd
-
-# =========================================
-# APP
-# =========================================
-
 app = FastAPI()
-
-# =========================================
-# CORS
-# =========================================
 
 app.add_middleware(
     CORSMiddleware,
@@ -33,371 +16,205 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# =========================================
-# DIRECTORIES
-# =========================================
+BASE_DIR = Path(__file__).resolve().parent
+UPLOAD_DIR = BASE_DIR / "../uploads"
+MOVED_DIR = BASE_DIR / "../moved"
 
-BASE_DIR = os.path.dirname(
-    os.path.abspath(__file__)
-)
+UPLOAD_DIR.mkdir(exist_ok=True)
+MOVED_DIR.mkdir(exist_ok=True)
 
-UPLOAD_DIR = os.path.join(BASE_DIR, "../uploads")
-
-MOVED_DIR = os.path.join(BASE_DIR, "../moved")
-
-os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-os.makedirs(MOVED_DIR, exist_ok=True)
-
-# =========================================
-# CONFIG
-# =========================================
-
-ALLOWED_EXTENSIONS = {
-    ".csv",
-    ".xlsx"
-}
-
-MAX_SIZE = 25 * 1024 * 1024  # 25MB
-
+ALLOWED_EXTENSIONS = {".csv", ".xlsx"}
+MAX_SIZE = 25 * 1024 * 1024
 PREVIEW_LIMIT = 100
 
-# =========================================
-# HELPERS
-# =========================================
 
-def validate_extension(filename: str):
+def safe_filename(filename: str) -> str:
+    return Path(filename).name
 
-    ext = os.path.splitext(filename)[1].lower()
+
+def validate_extension(filename: str) -> str:
+    ext = Path(filename).suffix.lower()
 
     if ext not in ALLOWED_EXTENSIONS:
         raise HTTPException(
             status_code=400,
-            detail="Unsupported format. Use CSV or XLSX only."
+            detail="Unsupported format. Use CSV or XLSX only.",
         )
 
     return ext
 
 
-def safe_filename(filename: str):
-
-    return os.path.basename(filename)
-
-
-def load_dataframe(path: str, filename: str):
-
-    ext = os.path.splitext(filename)[1].lower()
+def load_dataframe(path: Path) -> pd.DataFrame:
+    ext = path.suffix.lower()
 
     try:
-
-        # =========================================
-        # CSV
-        # =========================================
-
         if ext == ".csv":
-
-            # Auto-detect delimiter
-            # Handles:
-            # ;
-            # ,
-            # tab
-
             df = pd.read_csv(
                 path,
                 sep=None,
                 engine="python",
                 dtype=str,
-                keep_default_na=False
+                keep_default_na=False,
             )
-
-        # =========================================
-        # EXCEL
-        # =========================================
-
         elif ext == ".xlsx":
-
-            df = pd.read_excel(
-                path,
-                dtype=str
-            )
-
+            df = pd.read_excel(path, dtype=str)
         else:
-
             raise HTTPException(
                 status_code=400,
-                detail="Unsupported file type"
+                detail="Unsupported file type",
             )
 
-        # =========================================
-        # CLEAN DATA
-        # =========================================
-
-        df = df.fillna("").astype(str)
-
-        return df
+        return df.fillna("").astype(str)
 
     except Exception as e:
-
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to read file: {str(e)}"
+            detail=f"Failed to read file: {e}",
         )
 
-# =========================================
-# ROOT
-# =========================================
 
 @app.get("/")
 async def root():
+    return {"message": "FastAPI Upload Service Running"}
 
-    return {
-        "message": "FastAPI Upload Service Running"
-    }
-
-# =========================================
-# UPLOAD
-# =========================================
 
 @app.post("/upload")
 async def upload_file(
     file: UploadFile = File(...),
     description: str = Form(...),
-    overwrite: bool = Query(False)
+    overwrite: bool = Query(False),
 ):
-
     filename = safe_filename(file.filename)
-
     validate_extension(filename)
-
-    # =========================================
-    # READ CONTENT
-    # =========================================
 
     content = await file.read()
 
-    # =========================================
-    # FILE SIZE CHECK
-    # =========================================
-
     if len(content) > MAX_SIZE:
-
         raise HTTPException(
             status_code=400,
-            detail="File too large. Max 25MB allowed."
+            detail="File too large. Max 25MB allowed.",
         )
 
-    # =========================================
-    # SAVE PATH
-    # =========================================
+    path = UPLOAD_DIR / filename
 
-    path = os.path.join(
-        UPLOAD_DIR,
-        filename
-    )
-
-    # =========================================
-    # EXISTENCE CHECK
-    # =========================================
-
-    if os.path.exists(path) and not overwrite:
-
+    if path.exists() and not overwrite:
         raise HTTPException(
             status_code=400,
-            detail="File already exists"
+            detail="File already exists",
         )
-
-    # =========================================
-    # SAVE FILE
-    # =========================================
 
     try:
-
-        with open(path, "wb") as f:
-            f.write(content)
+        path.write_bytes(content)
 
     except Exception as e:
-
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to save file: {str(e)}"
+            detail=f"Failed to save file: {e}",
         )
-
-    # =========================================
-    # RESPONSE
-    # =========================================
 
     return {
         "message": "Uploaded successfully",
         "status": "success",
         "filename": filename,
-        "description": description.strip()
+        "description": description.strip(),
     }
 
-# =========================================
-# DELETE
-# =========================================
 
 @app.delete("/delete/{filename}")
 async def delete_file(filename: str):
-
     filename = safe_filename(filename)
+    path = UPLOAD_DIR / filename
 
-    path = os.path.join(
-        UPLOAD_DIR,
-        filename
-    )
-
-    # =========================================
-    # EXISTENCE CHECK
-    # =========================================
-
-    if not os.path.exists(path):
-
+    if not path.exists():
         raise HTTPException(
             status_code=404,
-            detail="File not found"
+            detail="File not found",
         )
 
-    # =========================================
-    # DELETE FILE
-    # =========================================
-
     try:
-
-        os.remove(path)
+        path.unlink()
 
     except Exception as e:
-
         raise HTTPException(
             status_code=500,
-            detail=f"Delete failed: {str(e)}"
+            detail=f"Delete failed: {e}",
         )
 
     return {
-    "message": "Cancelling upload",
-    "status": "cancel"
-}
+        "message": "Cancelling upload",
+        "status": "cancel",
+    }
 
-# =========================================
-# MOVE
-# =========================================
 
 @app.post("/move/{filename}")
 async def move_file(filename: str):
-
     filename = safe_filename(filename)
 
-    src = os.path.join(
-        UPLOAD_DIR,
-        filename
-    )
+    src = UPLOAD_DIR / filename
+    dst = MOVED_DIR / filename
 
-    dst = os.path.join(
-        MOVED_DIR,
-        filename
-    )
-
-    # =========================================
-    # EXISTENCE CHECK
-    # =========================================
-
-    if not os.path.exists(src):
-
+    if not src.exists():
         raise HTTPException(
             status_code=404,
-            detail="File not found"
+            detail="File not found",
         )
 
-    if os.path.exists(dst):
-
+    if dst.exists():
         raise HTTPException(
             status_code=400,
-            detail="File with same name already exists. Please rename first."
+            detail="File with same name already exists.",
         )
 
-    # =========================================
-    # MOVE FILE
-    # =========================================
-
     try:
-
         shutil.move(src, dst)
 
     except Exception as e:
-
         raise HTTPException(
             status_code=500,
-            detail=f"Move failed: {str(e)}"
+            detail=f"Move failed: {e}",
         )
 
     return {
         "message": "Successfully Submitted",
-        "status": "success"
-}
+        "status": "success",
+    }
 
-# =========================================
-# PREVIEW
-# =========================================
 
 @app.get("/preview/{filename}")
 async def preview_file(filename: str):
-
     filename = safe_filename(filename)
+    path = UPLOAD_DIR / filename
 
-    path = os.path.join(
-        UPLOAD_DIR,
-        filename
-    )
-
-    # =========================================
-    # EXISTENCE CHECK
-    # =========================================
-
-    if not os.path.exists(path):
-
+    if not path.exists():
         raise HTTPException(
             status_code=404,
-            detail="File not found"
+            detail="File not found",
         )
 
-    # =========================================
-    # LOAD DATAFRAME
-    # =========================================
-
-    df = load_dataframe(path, filename)
-
-    # =========================================
-    # PREVIEW
-    # =========================================
-
+    df = load_dataframe(path)
     preview = df.head(PREVIEW_LIMIT)
 
-    # =========================================
-    # RESPONSE
-    # =========================================
+    return JSONResponse(
+        {
+            "columns": preview.columns.tolist(),
+            "rows": preview.values.tolist(),
+            "total_rows": len(df),
+            "preview_rows": len(preview),
+        }
+    )
 
-    return JSONResponse({
-
-        "columns":
-            preview.columns.tolist(),
-
-        "rows":
-            preview.values.tolist(),
-
-        "total_rows":
-            int(len(df)),
-
-        "preview_rows":
-            int(len(preview))
-    })
-
-# =========================================
-# HEALTH CHECK
-# =========================================
 
 @app.get("/health")
 async def health():
+    return {"status": "ok"}
+
+@app.get("/exists/{filename}")
+async def check_file_exists(filename: str):
+
+    filename = safe_filename(filename)
+
+    path = UPLOAD_DIR / filename
 
     return {
-        "status": "ok"
+        "exists": path.exists()
     }

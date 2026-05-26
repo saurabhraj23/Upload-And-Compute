@@ -1,270 +1,277 @@
 import {
-  useState,
-  useEffect
-} from 'react';
+  useEffect,
+  useRef,
+  useState
+} from "react";
 
-import axios from 'axios';
+import axios from "axios";
 
 import {
   useLocation,
   useNavigate
-} from 'react-router-dom';
+} from "react-router-dom";
 
-import excelIcon from './assets/excel.png';
+import excelIcon from "./assets/excel.png";
 
-import './App.css';
-import './css/processing_page.css';
+const API_BASE_URL =
+  (
+    import.meta.env.VITE_API_BASE_URL ||
+    "http://127.0.0.1:8000"
+  ).replace(/\/$/, "");
 
 export default function ProcessingPage() {
 
-  const { state } = useLocation();
+  const { state } =
+    useLocation();
 
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
-  /* =========================================
-     STATES
-     ========================================= */
+  const redirectTimerRef =
+    useRef(null);
 
-  const [message, setMessage] = useState("");
+  const [message,
+    setMessage] =
+    useState("");
 
-  const [isError, setIsError] =
+  const [isError,
+    setIsError] =
     useState(false);
 
-  const [isSuccess, setIsSuccess] =
+  const [isSuccess,
+    setIsSuccess] =
     useState(false);
 
-  const [isCancelling, setIsCancelling] =
+  const [isCancelling,
+    setIsCancelling] =
     useState(false);
 
-  const [isSubmitting, setIsSubmitting] =
+  const [isSubmitting,
+    setIsSubmitting] =
     useState(false);
 
-  const [previewData, setPreviewData] =
+  const [previewData,
+    setPreviewData] =
     useState(null);
 
-  const [isPreviewOpen, setIsPreviewOpen] =
+  const [isPreviewOpen,
+    setIsPreviewOpen] =
     useState(false);
 
-  const [isLoadingPreview, setIsLoadingPreview] =
+  const [isLoadingPreview,
+    setIsLoadingPreview] =
     useState(false);
-
-  const [redirectTimer, setRedirectTimer] =
-    useState(null);
-
-  /* =========================================
-     VALIDATION
-     ========================================= */
 
   useEffect(() => {
 
     if (!state?.fileName) {
 
-      navigate('/', {
-        replace: true
+      navigate("/", {
+        replace: true,
       });
     }
 
   }, [state, navigate]);
 
-  /* =========================================
-     CLEANUP TIMER
-     ========================================= */
-
   useEffect(() => {
 
     return () => {
 
-      if (redirectTimer) {
+      if (
+        redirectTimerRef.current
+      ) {
 
-        clearInterval(redirectTimer);
+        clearInterval(
+          redirectTimerRef.current
+        );
       }
     };
 
-  }, [redirectTimer]);
-
-  /* =========================================
-     ESC KEY CLOSE
-     ========================================= */
+  }, []);
 
   useEffect(() => {
 
     const handleEsc = (e) => {
 
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
 
         setIsPreviewOpen(false);
       }
     };
 
     window.addEventListener(
-      'keydown',
+      "keydown",
       handleEsc
     );
 
     return () => {
 
       window.removeEventListener(
-        'keydown',
+        "keydown",
         handleEsc
       );
     };
 
   }, []);
 
-  /* =========================================
-     ACTIONS
-     ========================================= */
-
-  const handleAction = async (action) => {
+  const resetStatus = () => {
 
     setIsError(false);
 
     setIsSuccess(false);
 
-    try {
-
-      /* =========================================
-         CANCEL
-         ========================================= */
-
-      if (action === 'cancel') {
-
-        if (isCancelling) return;
-
-        setIsCancelling(true);
-
-        const res = await axios.delete(
-          `http://127.0.0.1:8000/delete/${state.fileName}`
-        );
-
-        let seconds = 3;
-
-        setMessage(
-          `${res.data.message} Redirecting in ${seconds}`
-        );
-
-        const interval = setInterval(() => {
-
-          seconds--;
-
-          if (seconds > 0) {
-
-            setMessage(
-              `${res.data.message} Redirecting in ${seconds}`
-            );
-
-          } else {
-
-            clearInterval(interval);
-
-            navigate('/', {
-              replace: true
-            });
-          }
-
-        }, 1000);
-
-        setRedirectTimer(interval);
-
-        return;
-      }
-
-      /* =========================================
-         PREVIEW
-         ========================================= */
-
-      if (action === 'preview') {
-
-        setIsLoadingPreview(true);
-
-        const res = await axios.get(
-          `http://127.0.0.1:8000/preview/${state.fileName}`
-        );
-
-        setPreviewData(res.data);
-
-        setIsPreviewOpen(true);
-
-        return;
-      }
-
-      /* =========================================
-         SUBMIT
-         ========================================= */
-
-      if (action === 'submit') {
-
-        setIsSubmitting(true);
-
-        const res = await axios.post(
-          `http://127.0.0.1:8000/move/${state.fileName}`
-        );
-
-        setMessage(res.data.message);
-
-        setIsSuccess(true);
-
-        setTimeout(() => {
-
-          navigate('/', {
-            replace: true
-          });
-
-        }, 1500);
-
-        return;
-      }
-
-    } catch (err) {
-
-      setIsError(true);
-
-      setMessage(
-        err.response?.data?.detail ||
-        "Processing failed"
-      );
-
-    } finally {
-
-      setIsLoadingPreview(false);
-
-      setIsSubmitting(false);
-    }
+    setMessage("");
   };
 
-  /* =========================================
-     CELL UPDATE
-     ========================================= */
-
-  const handleCellChange = (
-    rowIndex,
-    colIndex,
-    value
+  const getErrorMessage = (
+    err,
+    fallback
   ) => {
 
-    setPreviewData((prev) => {
-
-      const updatedRows = [...prev.rows];
-
-      updatedRows[rowIndex] = [
-        ...updatedRows[rowIndex]
-      ];
-
-      updatedRows[rowIndex][colIndex] =
-        value;
-
-      return {
-
-        ...prev,
-
-        rows: updatedRows
-      };
-    });
+    return (
+      err.response?.data?.detail ||
+      err.message ||
+      fallback
+    );
   };
 
-  /* =========================================
-     EMPTY STATE
-     ========================================= */
+  const encodedFileName =
+    encodeURIComponent(
+      state?.fileName || ""
+    );
+
+  const handleAction =
+    async (action) => {
+
+      resetStatus();
+
+      try {
+
+        /* ================================
+           CANCEL
+           ================================ */
+
+        if (action === "cancel") {
+
+          if (isCancelling) return;
+
+          setIsCancelling(true);
+
+          const res =
+            await axios.delete(
+              `${API_BASE_URL}/delete/${encodedFileName}`
+            );
+
+          let seconds = 3;
+
+          setMessage(
+            `${res.data.message} Redirecting in ${seconds}`
+          );
+
+          redirectTimerRef.current =
+            setInterval(() => {
+
+              seconds--;
+
+              if (seconds > 0) {
+
+                setMessage(
+                  `${res.data.message} Redirecting in ${seconds}`
+                );
+
+              } else {
+
+                clearInterval(
+                  redirectTimerRef.current
+                );
+
+                navigate("/", {
+                  replace: true,
+                });
+              }
+
+            }, 1000);
+
+          return;
+        }
+
+        /* ================================
+           PREVIEW
+           ================================ */
+
+        if (action === "preview") {
+
+          setIsLoadingPreview(true);
+
+          const res =
+            await axios.get(
+              `${API_BASE_URL}/preview/${encodedFileName}`
+            );
+
+          setPreviewData(
+            res.data
+          );
+
+          setIsPreviewOpen(true);
+
+          return;
+        }
+
+        /* ================================
+           SUBMIT
+           ================================ */
+
+        if (action === "submit") {
+
+          setIsSubmitting(true);
+
+          const res =
+            await axios.post(
+              `${API_BASE_URL}/move/${encodedFileName}`
+            );
+
+          setMessage(
+            res.data.message
+          );
+
+          setIsSuccess(true);
+
+          setTimeout(() => {
+
+            navigate("/", {
+              replace: true,
+            });
+
+          }, 1500);
+
+          return;
+        }
+
+      } catch (err) {
+
+        setIsError(true);
+
+        setMessage(
+          getErrorMessage(
+            err,
+            "Processing failed"
+          )
+        );
+
+} finally {
+
+  setIsLoadingPreview(
+    false
+  );
+
+  setIsSubmitting(false);
+
+  if (action !== "cancel") {
+
+    setIsCancelling(false);
+  }
+}
+    };
 
   if (!state) return null;
 
@@ -274,8 +281,6 @@ export default function ProcessingPage() {
 
       <div className="upload-card">
 
-        {/* HEADER */}
-
         <header className="upload-header">
 
           <h2 className="heading-main">
@@ -284,18 +289,15 @@ export default function ProcessingPage() {
 
           <p>
             <i>
-              Preview and validate the data
-              before submitting.
+              Preview and validate
+              the data before
+              submitting.
             </i>
           </p>
 
         </header>
 
-        {/* BODY */}
-
         <div className="form-body">
-
-          {/* FILE */}
 
           <div className="file-upload-zone active">
 
@@ -315,8 +317,6 @@ export default function ProcessingPage() {
 
           </div>
 
-          {/* DESCRIPTION */}
-
           <div className="input-group">
 
             <label className="field-label">
@@ -329,14 +329,14 @@ export default function ProcessingPage() {
 
           </div>
 
-          {/* ACTION BUTTONS */}
-
           <div className="action-grid">
 
             <button
               className="btn-secondary"
               onClick={() =>
-                handleAction('preview')
+                handleAction(
+                  "preview"
+                )
               }
               disabled={
                 isLoadingPreview ||
@@ -347,8 +347,8 @@ export default function ProcessingPage() {
 
               {
                 isLoadingPreview
-                  ? 'Loading...'
-                  : 'Preview'
+                  ? "Loading..."
+                  : "Preview"
               }
 
             </button>
@@ -356,7 +356,9 @@ export default function ProcessingPage() {
             <button
               className="btn-next"
               onClick={() =>
-                handleAction('submit')
+                handleAction(
+                  "submit"
+                )
               }
               disabled={
                 isSubmitting ||
@@ -366,22 +368,22 @@ export default function ProcessingPage() {
 
               {
                 isSubmitting
-                  ? 'Submitting...'
-                  : 'Submit'
+                  ? "Submitting..."
+                  : "Submit"
               }
 
             </button>
 
           </div>
 
-          {/* FOOTER */}
-
           <div className="footer-actions">
 
             <button
               className="btn-cancel-link"
               onClick={() =>
-                handleAction('cancel')
+                handleAction(
+                  "cancel"
+                )
               }
               disabled={
                 isCancelling ||
@@ -391,8 +393,8 @@ export default function ProcessingPage() {
 
               {
                 isCancelling
-                  ? 'Cancelling...'
-                  : 'Cancel and Exit'
+                  ? "Cancelling..."
+                  : "Cancel and Exit"
               }
 
             </button>
@@ -406,12 +408,12 @@ export default function ProcessingPage() {
               <span
                 className={`status-value ${
                   isError
-                    ? 'text-error'
+                    ? "text-error"
                     : isCancelling
-                    ? 'text-cancel'
+                    ? "text-cancel"
                     : isSuccess
-                    ? 'text-success'
-                    : ''
+                    ? "text-success"
+                    : ""
                 }`}
               >
 
@@ -430,10 +432,6 @@ export default function ProcessingPage() {
 
       </div>
 
-      {/* =========================================
-         PREVIEW MODAL
-         ========================================= */}
-
       {
         isPreviewOpen &&
         previewData && (
@@ -441,7 +439,9 @@ export default function ProcessingPage() {
           <div
             className="preview-overlay"
             onClick={() =>
-              setIsPreviewOpen(false)
+              setIsPreviewOpen(
+                false
+              )
             }
           >
 
@@ -452,8 +452,6 @@ export default function ProcessingPage() {
               }
             >
 
-              {/* HEADER */}
-
               <div className="preview-header">
 
                 <h3>
@@ -463,7 +461,9 @@ export default function ProcessingPage() {
                 <button
                   className="close-preview-btn"
                   onClick={() =>
-                    setIsPreviewOpen(false)
+                    setIsPreviewOpen(
+                      false
+                    )
                   }
                 >
                   ✕
@@ -471,31 +471,26 @@ export default function ProcessingPage() {
 
               </div>
 
-              {/* INFO */}
-
               <div className="preview-info">
 
-                Showing
-                {' '}
-                {previewData.preview_rows}
-                {' '}
-                of
-                {' '}
-                {previewData.total_rows}
-                {' '}
+                Showing{" "}
+                {
+                  previewData.preview_rows
+                }{" "}
+                of{" "}
+                {
+                  previewData.total_rows
+                }{" "}
                 rows
 
-                {' | '}
+                {" | "}
 
-                Columns:
-                {' '}
+                Columns:{" "}
                 {
                   previewData.columns.length
                 }
 
               </div>
-
-              {/* TABLE */}
 
               <div className="preview-table-wrapper">
 
@@ -519,7 +514,7 @@ export default function ProcessingPage() {
                                 width: `${Math.max(
                                   column.length * 14,
                                   140
-                                )}px`
+                                )}px`,
                               }}
                             >
 
@@ -541,69 +536,59 @@ export default function ProcessingPage() {
 
                   <tbody>
 
-                    {
-                      previewData.rows.map(
-                        (
-                          row,
-                          rowIndex
-                        ) => (
+  {
+    previewData.rows.map(
+      (
+        row,
+        rowIndex
+      ) => (
 
-                          <tr key={rowIndex}>
+        <tr key={rowIndex}>
 
-                            {
-                              row.map(
-                                (
-                                  cell,
-                                  colIndex
-                                ) => (
+          {
+            row.map(
+              (
+                cell,
+                colIndex
+              ) => (
 
-                                  <td
-                                    key={colIndex}
-                                  >
+                <td
+                  key={colIndex}
+                  title={cell ?? ""}
+                >
 
-                                    <input
-                                      type="text"
-                                      value={
-                                        cell ?? ""
-                                      }
-                                      title={
-                                        cell ?? ""
-                                      }
-                                      onChange={(e) =>
-                                        handleCellChange(
-                                          rowIndex,
-                                          colIndex,
-                                          e.target.value
-                                        )
-                                      }
-                                    />
+                  <div className="preview-cell">
 
-                                  </td>
+                    {cell ?? ""}
 
-                                )
-                              )
-                            }
+                  </div>
 
-                          </tr>
+                </td>
 
-                        )
-                      )
-                    }
+              )
+            )
+          }
 
-                  </tbody>
+        </tr>
+
+      )
+    )
+  }
+
+</tbody>
 
                 </table>
 
               </div>
-
-              {/* FOOTER */}
 
               <div className="preview-footer">
 
                 <button
                   className="btn-secondary"
                   onClick={() =>
-                    setIsPreviewOpen(false)
+                    setIsPreviewOpen(
+                      false
+                    )
                   }
                 >
                   Close

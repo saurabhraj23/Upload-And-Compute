@@ -1,81 +1,195 @@
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import excelIcon from './assets/excel.png';
-import './App.css';
+import {
+  useEffect,
+  useRef,
+  useState
+} from "react";
+
+import { useNavigate } from "react-router-dom";
+
+import excelIcon from "./assets/excel.png";
+
+const API_BASE_URL =
+  (
+    import.meta.env.VITE_API_BASE_URL ||
+    "http://127.0.0.1:8000"
+  ).replace(/\/$/, "");
+
+const MAX_FILE_SIZE =
+  25 * 1024 * 1024;
+
+const ALLOWED_EXTENSIONS = [
+  "csv",
+  "xlsx",
+];
+
+const sanitizeFileName = (
+  name
+) => {
+
+  return name.replace(
+    /[<>:"/\\|?*\x00-\x1F]/g,
+    ""
+  );
+};
 
 export default function UploadPage() {
 
-  const [file, setFile] = useState(null);
+  const [file, setFile] =
+    useState(null);
 
-  const [description, setDescription] =
+  const [description,
+    setDescription] =
     useState("");
 
-  const [error, setError] = useState("");
+  const [error,
+    setError] =
+    useState("");
 
-  const [isUploading, setIsUploading] =
+  const [isUploading,
+    setIsUploading] =
     useState(false);
 
-  // Filename editing state
   const [editableFileName,
-    setEditableFileName] = useState("");
+    setEditableFileName] =
+    useState("");
 
   const [isEditingFileName,
     setIsEditingFileName] =
     useState(false);
 
-  // Overwrite button
-  const [showOverwrite,
-    setShowOverwrite] =
+  const [fileExists,
+    setFileExists] =
     useState(false);
 
-  // Status message
+  const [checkingExists,
+    setCheckingExists] =
+    useState(false);
+
   const [statusMessage,
     setStatusMessage] =
     useState("");
 
   const [statusType,
     setStatusType] =
-    useState(""); // success | error
+    useState("");
 
-  const navigate = useNavigate();
+  const navigate =
+    useNavigate();
 
-  const fileInputRef = useRef(null);
+  const fileInputRef =
+    useRef(null);
 
-  const MAX_FILE_SIZE =
-    25 * 1024 * 1024;
+  const resetStatus = () => {
+const resetStatus = () => {
+  setError("");
+};
+  };
 
-  // =========================================
-  // FILE CHANGE
-  // =========================================
+  const checkFileExists =
+    async (
+      fileName,
+      extension
+    ) => {
+
+      if (!fileName) return;
+
+      try {
+
+        setCheckingExists(true);
+
+        const finalFileName =
+          `${fileName}.${extension}`;
+
+        const response =
+          await fetch(
+            `${API_BASE_URL}/exists/${encodeURIComponent(finalFileName)}`
+          );
+
+        const data =
+          await response.json();
+
+        if (data.exists) {
+
+          setFileExists(true);
+
+          setStatusMessage(
+            "File already exists with same name."
+          );
+
+          setStatusType("error");
+
+        } else {
+
+          setFileExists(false);
+
+          setStatusMessage(
+            "Ready to upload."
+          );
+
+          setStatusType("ready");
+        }
+
+      } catch {
+
+        setStatusMessage(
+          "Failed to validate filename."
+        );
+
+        setStatusType("error");
+
+      } finally {
+
+        setCheckingExists(false);
+      }
+    };
+
+  useEffect(() => {
+
+    if (!file) return;
+
+    const extension =
+      file.name.split(".").pop();
+
+    const sanitized =
+      sanitizeFileName(
+        editableFileName.trim()
+      );
+
+    if (!sanitized) return;
+
+    const timer =
+      setTimeout(() => {
+
+        checkFileExists(
+          sanitized,
+          extension
+        );
+
+      }, 300);
+
+    return () =>
+      clearTimeout(timer);
+
+  }, [editableFileName]);
 
   const handleFileChange = (e) => {
 
     const selectedFile =
-      e.target.files[0];
+      e.target.files?.[0];
 
-    const allowedExtensions =
-      ["csv", "xlsx"];
-
-    setError("");
-
-    setStatusMessage("");
-
-    setStatusType("");
-
-    setShowOverwrite(false);
+    resetStatus();
 
     if (!selectedFile) return;
 
-    const ext = selectedFile.name
-      .split('.')
-      .pop()
-      ?.toLowerCase();
+    const ext =
+      selectedFile.name
+        .split(".")
+        .pop()
+        ?.toLowerCase();
 
-    // =========================================
-    // EXTENSION VALIDATION
-    // =========================================
-
-    if (!allowedExtensions.includes(ext)) {
+    if (
+      !ALLOWED_EXTENSIONS.includes(ext)
+    ) {
 
       setError(
         "Invalid format. Please upload .csv or .xlsx only."
@@ -94,12 +208,10 @@ export default function UploadPage() {
       return;
     }
 
-    // =========================================
-    // SIZE VALIDATION
-    // =========================================
-
-    if (selectedFile.size >
-      MAX_FILE_SIZE) {
+    if (
+      selectedFile.size >
+      MAX_FILE_SIZE
+    ) {
 
       setError(
         "File too large. Max 25MB allowed."
@@ -118,10 +230,6 @@ export default function UploadPage() {
       return;
     }
 
-    // =========================================
-    // CLONE FILE
-    // =========================================
-
     const clonedFile = new File(
       [selectedFile],
       selectedFile.name,
@@ -134,26 +242,15 @@ export default function UploadPage() {
 
     setFile(clonedFile);
 
-    // =========================================
-    // REMOVE EXTENSION
-    // =========================================
-
-    const fileNameWithoutExtension =
+    setEditableFileName(
       selectedFile.name.replace(
         /\.[^/.]+$/,
         ""
-      );
-
-    setEditableFileName(
-      fileNameWithoutExtension
+      )
     );
 
     setIsEditingFileName(false);
   };
-
-  // =========================================
-  // REMOVE FILE
-  // =========================================
 
   const handleRemoveFile = (e) => {
 
@@ -163,17 +260,17 @@ export default function UploadPage() {
 
     setFile(null);
 
-    setError("");
-
     setEditableFileName("");
 
     setIsEditingFileName(false);
 
-    setShowOverwrite(false);
+    setFileExists(false);
 
     setStatusMessage("");
 
     setStatusType("");
+
+    resetStatus();
 
     if (fileInputRef.current) {
 
@@ -181,39 +278,34 @@ export default function UploadPage() {
     }
   };
 
-  // =========================================
-  // VALIDATION
-  // =========================================
-
   const isDescriptionValid =
     description.trim().length >= 3;
+
+  const sanitizedFileName =
+    sanitizeFileName(
+      editableFileName.trim()
+    );
 
   const isFormInvalid =
     !file ||
     !isDescriptionValid ||
     isUploading ||
-    editableFileName.trim().length === 0 ||
-    isEditingFileName;
-
-  // =========================================
-  // UPLOAD REQUEST
-  // =========================================
+    !sanitizedFileName ||
+    isEditingFileName ||
+    checkingExists;
 
   const uploadRequest = async (
-    overwrite
+    overwrite = false
   ) => {
 
-    const formData = new FormData();
+    const formData =
+      new FormData();
 
-    const originalExtension =
-      file.name.split('.').pop();
+    const extension =
+      file.name.split(".").pop();
 
     const finalFileName =
-      `${editableFileName.trim()}.${originalExtension}`;
-
-    // =========================================
-    // CREATE RENAMED FILE
-    // =========================================
+      `${sanitizedFileName}.${extension}`;
 
     const renamedFile = new File(
       [file],
@@ -235,188 +327,84 @@ export default function UploadPage() {
       description.trim()
     );
 
-    const response = await fetch(
-      `http://127.0.0.1:8000/upload?overwrite=${overwrite}`,
+    return fetch(
+      `${API_BASE_URL}/upload?overwrite=${overwrite}`,
       {
         method: "POST",
         body: formData,
       }
     );
-
-    return response;
   };
 
-  // =========================================
-  // UPLOAD
-  // =========================================
+  const navigateToProcessing =
+    () => {
 
-  const handleNext = async () => {
+      navigate("/processing", {
+        state: {
+          fileName:
+            `${sanitizedFileName}.${file.name.split(".").pop()}`,
 
-    if (isFormInvalid) return;
+          description:
+            description.trim(),
+        },
+      });
+    };
 
-    setIsUploading(true);
+  const handleUpload =
+    async () => {
 
-    setError("");
+      if (isFormInvalid) return;
 
-    setStatusMessage("");
+      setIsUploading(true);
 
-    setStatusType("");
+      try {
 
-    setShowOverwrite(false);
-
-    try {
-
-      let response =
-        await uploadRequest(false);
-
-      let data =
-        await response.json();
-
-      if (!response.ok) {
-
-        // =========================================
-        // FILE EXISTS
-        // =========================================
-
-        if (
-          data.detail ===
-          "File already exists"
-        ) {
-
-          setShowOverwrite(true);
-
-          setStatusMessage(
-            "File already exists. Rename or overwrite the file."
+        const response =
+          await uploadRequest(
+            fileExists
           );
 
-          setStatusType("error");
+        const data =
+          await response.json();
 
-          setIsUploading(false);
+        if (!response.ok) {
 
-          return;
+          throw new Error(
+            data.detail ||
+            "Upload failed"
+          );
         }
 
-        throw new Error(
-          data.detail ||
-          "Upload failed"
+        setStatusMessage(
+          fileExists
+            ? "File overwritten successfully."
+            : "File uploaded successfully."
         );
-      }
 
-      setStatusMessage(
-        "File uploaded successfully."
-      );
+        setStatusType("upload-success");
 
-      setStatusType("success");
-
-      setTimeout(() => {
-
-        navigate('/processing', {
-          state: {
-            fileName:
-              `${editableFileName.trim()}.${file.name.split('.').pop()}`,
-
-            description:
-              description.trim(),
-          }
-        });
-
-      }, 1000);
-
-    } catch (err) {
-
-      setError(
-        err.message ||
-        "Upload failed"
-      );
-
-      setStatusMessage(
-        err.message ||
-        "Upload failed"
-      );
-
-      setStatusType("error");
-
-    } finally {
-
-      setIsUploading(false);
-    }
-  };
-
-  // =========================================
-  // OVERWRITE
-  // =========================================
-
-  const handleOverwrite = async () => {
-
-    setIsUploading(true);
-
-    setError("");
-
-    setStatusMessage("");
-
-    setStatusType("");
-
-    try {
-
-      const response =
-        await uploadRequest(true);
-
-      const data =
-        await response.json();
-
-      if (!response.ok) {
-
-        throw new Error(
-          data.detail ||
-          "Overwrite failed"
+        setTimeout(
+          navigateToProcessing,
+          1000
         );
+
+      } catch (err) {
+
+        setError(
+          err.message
+        );
+
+        setStatusMessage(
+          err.message
+        );
+
+        setStatusType("error");
+
+      } finally {
+
+        setIsUploading(false);
       }
-
-      setShowOverwrite(false);
-
-      setStatusMessage(
-        "File overwritten successfully."
-      );
-
-      setStatusType("success");
-
-      setTimeout(() => {
-
-        navigate('/processing', {
-          state: {
-            fileName:
-              `${editableFileName.trim()}.${file.name.split('.').pop()}`,
-
-            description:
-              description.trim(),
-          }
-        });
-
-      }, 1000);
-
-    } catch (err) {
-
-      setError(
-        err.message ||
-        "Overwrite failed"
-      );
-
-      setStatusMessage(
-        err.message ||
-        "Overwrite failed"
-      );
-
-      setStatusType("error");
-
-    } finally {
-
-      setIsUploading(false);
-    }
-  };
-
-  // =========================================
-  // UI
-  // =========================================
+    };
 
   return (
 
@@ -442,9 +430,9 @@ export default function UploadPage() {
 
           <div
             className={`file-upload-zone ${
-              file ? 'active' : ''
+              file ? "active" : ""
             } ${
-              error ? 'error' : ''
+              error ? "error" : ""
             }`}
           >
 
@@ -489,7 +477,9 @@ export default function UploadPage() {
                         value={editableFileName}
                         onChange={(e) =>
                           setEditableFileName(
-                            e.target.value
+                            sanitizeFileName(
+                              e.target.value
+                            )
                           )
                         }
                       />
@@ -504,8 +494,7 @@ export default function UploadPage() {
                           e.stopPropagation();
 
                           if (
-                            editableFileName
-                              .trim() === ""
+                            !sanitizedFileName
                           ) {
                             return;
                           }
@@ -531,10 +520,12 @@ export default function UploadPage() {
 
                       <span className="confirmed-file-name">
 
-                        {editableFileName.trim()}.
-                        {file.name
-                          .split('.')
-                          .pop()}
+                        {sanitizedFileName}.
+                        {
+                          file.name
+                            .split(".")
+                            .pop()
+                        }
 
                       </span>
 
@@ -547,8 +538,6 @@ export default function UploadPage() {
 
                           e.stopPropagation();
 
-                          setShowOverwrite(false);
-
                           setIsEditingFileName(
                             true
                           );
@@ -556,25 +545,6 @@ export default function UploadPage() {
                       >
                         Rename
                       </button>
-
-                      {showOverwrite && (
-
-                        <button
-                          type="button"
-                          className="file-action-btn overwrite-btn"
-                          onClick={(e) => {
-
-                            e.preventDefault();
-
-                            e.stopPropagation();
-
-                            handleOverwrite();
-                          }}
-                        >
-                          Overwrite
-                        </button>
-
-                      )}
 
                     </div>
 
@@ -617,7 +587,9 @@ export default function UploadPage() {
               ref={fileInputRef}
               accept=".csv,.xlsx"
               onChange={handleFileChange}
-              style={{ display: 'none' }}
+              style={{
+                display: "none",
+              }}
             />
 
           </div>
@@ -654,8 +626,8 @@ export default function UploadPage() {
               className={`text-input ${
                 description.length > 0 &&
                 !isDescriptionValid
-                  ? 'input-error'
-                  : ''
+                  ? "input-error"
+                  : ""
               }`}
               placeholder="e.g. Sales Data"
               value={description}
@@ -670,36 +642,56 @@ export default function UploadPage() {
 
         </div>
 
-        <footer className="upload-footer">
+<footer className="upload-footer">
 
-          <button
-            className="btn-next"
-            onClick={handleNext}
-            disabled={isFormInvalid}
-          >
+  <button
+    className={`btn-next ${
+      fileExists &&
+      !isFormInvalid
+        ? "btn-overwrite"
+        : ""
+    }`}
+    onClick={handleUpload}
+    disabled={isFormInvalid}
+  >
 
-            {isUploading
-              ? "Uploading..."
-              : "Upload File"}
+    {
+      fileExists
+        ? "Overwrite File"
+        : "Upload File"
+    }
 
-          </button>
+  </button>
 
-          {statusMessage && (
+  <div className="status-wrapper">
 
-            <p
-              className={`upload-status ${
-                statusType === "success"
-                  ? "status-success"
-                  : "status-error"
-              }`}
-            >
-              {statusMessage}
-            </p>
+    <span className="status-title">
+      Status:
+    </span>
 
-          )}
+    <p
+className={`upload-status ${
+  statusType === "ready"
+    ? "status-ready"
+    : statusType === "upload-success"
+    ? "status-upload-success"
+    : statusType === "error"
+    ? "status-error"
+    : ""
+}`}    
+    >
 
-        </footer>
+      {
+        checkingExists
+          ? "Checking filename..."
+          : statusMessage || "Waiting for file selection."
+      }
 
+    </p>
+
+  </div>
+
+</footer>
       </div>
 
     </div>
